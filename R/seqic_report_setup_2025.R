@@ -462,5 +462,6 @@ export_seqic_data <- function(
 # - examine calendar years 2020-2024 of trauma data
 # - ingest data and calculate results by agency and year using the `traumar`
 # package
-# - send 1 file per indicator to each agency
+# - send 1 file per indicator to each agency, 1 file for W, M, and Z statistics,
+# and 1 file for the RMM statistics
 ###_____________________________________________________________________________
