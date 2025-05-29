@@ -408,13 +408,6 @@ join_comparison_data <- function(data, data_level, data_region) {
 #   `traumar::seqic_indicator_*()` and any additional wrangling or annotation.
 # - Designed for batch export of customized reports at the agency level.
 #
-# Example:
-# export_seqic_data(
-#   agency_names = unique(seqic_results$Facility_Name),
-#   seqic_results = formatted_results,
-#   indicator = "8_all"
-# )
-
 export_seqic_data <- function(
   agency_names,
   facility_name_col,
