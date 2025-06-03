@@ -40,6 +40,96 @@
 
 # Handy Functions --------------------------------------------------------------
 
+### CALCULATION FACILITIES =====================================================
+
+# Apply rm_bin_summary with dynamic parameters based on sample size
+#
+# This function:
+# - Accepts a dataset with propensity scores and binary outcomes.
+# - Checks for insufficient data (n < 2) and returns a 1-row tibble with
+#   pre-defined structure filled with NA_real_ values.
+# - Otherwise, determines the number of observations in the dataset and
+#   sets thresholds and divisors dynamically:
+#     - ≤100 rows: thresholds (0.8, 0.9), divisors = 1
+#     - 101–200 rows: thresholds (0.9, 0.99), divisors = 1
+#     - >200 rows: thresholds (0.9, 0.99), divisors = 3
+# - Applies `traumar::rm_bin_summary()` with the appropriate parameters,
+#   using `{{ }}` to support unquoted column names.
+# - Returns a tibble summarizing binary outcome performance across propensity bins,
+#   with optional bootstrap-based confidence intervals.
+#
+# Used to flexibly summarize performance metrics across variable sample sizes,
+# including edge-case handling for very small cohorts.
+dynamic_rm_bin_summary <- function(
+  data,
+  Ps_col,
+  outcome_col,
+  group_vars,
+  n_samples,
+  bootstrap_ci,
+  seed
+) {
+  # Count observations
+  n_obs <- nrow(data)
+
+  # safeguard against n_obs < 2
+  if (n_obs < 2) {
+    # if n_obs < 2, produce a tibble 1 x 19 with all NA_real_ values for that
+    # facility and year
+    results <- tibble::tibble(
+      bin_number = NA_real_,
+      TA_b = NA_real_,
+      TD_b = NA_real_,
+      N_b = NA_real_,
+      EM_b = NA_real_,
+      AntiS_b = NA_real_,
+      AntiM_b = NA_real_,
+      bin_start = NA_real_,
+      bin_end = NA_real_,
+      midpoint = NA_real_,
+      R_b = NA_real_,
+      population_RMM_LL = NA_real_,
+      population_RMM = NA_real_,
+      population_RMM_UL = NA_real_,
+      population_CI = NA_real_,
+      bootstrap_RMM_LL = NA_real_,
+      bootstrap_RMM = NA_real_,
+      bootstrap_RMM_UL = NA_real_,
+      bootstrap_CI = NA_real_
+    )
+
+    # Return that fully missing result
+    return(results)
+  }
+
+  # Define dynamic parameters based on sample size
+  params <- if (n_obs <= 100) {
+    list(Divisor1 = 1, Divisor2 = 1, Threshold_1 = 0.8, Threshold_2 = 0.9)
+  } else if (n_obs <= 200) {
+    list(Divisor1 = 1, Divisor2 = 1, Threshold_1 = 0.9, Threshold_2 = 0.99)
+  } else {
+    list(Divisor1 = 3, Divisor2 = 3, Threshold_1 = 0.9, Threshold_2 = 0.99)
+  }
+
+  # Call rm_bin_summary with dynamic thresholds/divisors
+  results <- traumar::rm_bin_summary(
+    data = data,
+    Ps_col = {{ Ps_col }},
+    outcome_col = {{ outcome_col }},
+    group_vars = group_vars,
+    n_samples = n_samples,
+    Divisor1 = params$Divisor1,
+    Divisor2 = params$Divisor2,
+    Threshold_1 = params$Threshold_1,
+    Threshold_2 = params$Threshold_2,
+    bootstrap_ci = bootstrap_ci,
+    seed = seed
+  )
+
+  # Return the results as a tibble
+  return(results)
+}
+
 ### DATA MANIPULATION FACILITIES ===============================================
 
 ###_____________________________________________________________________________
@@ -95,7 +185,8 @@
       "5d",
       "6",
       "7",
-      "8",
+      "8_all",
+      "8_risk",
       "9a_all",
       "9b_all",
       "9c_all",
@@ -140,11 +231,12 @@
       "Indicator 4b - No Autopsy on Death with LOS > 72 Hours",
       "Indicator 5a - Blood ETOH Measured",
       "Indicator 5b - Blood ETOH Positive",
-      "Indicator 5c – Drug Screen Completed",
-      "Indicator 5d – Drug Screen Positive",
+      "Indicator 5c - Drug Screen Completed",
+      "Indicator 5d - Drug Screen Positive",
       "Indicator 6 - GCS Less Than 9 And Arrived to Definitive Care > 3 Hours from Injury",
       "Indicator 7 - Patients to Definitive Care > 3 Hours",
-      "Indicator 8 - Survival Rate",
+      "Indicator 8 - Overall Survival Rate",
+      "Indicator 8 - Survival Rate by Risk Group",
       "Indicator 9a - LOS (ED Or Hospital) > 2 Hours Among Transferred Patients",
       "Indicator 9b - LOS (ED Or Hospital) > 3 Hours Among Transferred Patients",
       "Indicator 9c - Time from Pt Arrival to Decision to D/C > 1 Hour Among Transferred Patients",
@@ -218,6 +310,7 @@
       NA_real_,
       NA_real_,
       NA_real_,
+      NA_real_,
       0.05,
       0.35,
       NA_real_,
@@ -230,19 +323,59 @@
 
 # Reshape SEQIC indicator columns from wide to long format
 #
-# Expects input data with indicator-specific columns such as:
-#   numerator_1a, denominator_1a, seqic_1a, ..., numerator_1f, etc.
+# Expects input data where each indicator (e.g., 1, 1a, 2, 8, etc.) has its own
+# set of columns, such as:
+#   numerator_8, denominator_8, seqic_8, lower_ci_8, upper_ci_8, etc.
 #
 # This function:
-# - Uses `pivot_longer()` with a regex-based pattern to extract both the indicator
-#   prefix (numerator, denominator, seqic) and the indicator code (e.g., "1a").
-# - The `.value` syntax ensures each prefix becomes a column in the result.
-# - The "Indicator" column identifies which indicator each row corresponds to.
-# - Renames the `seqic` column to `performance` for clarity.
+# - Optionally renames columns dynamically using user-defined regex patterns. Uses
+# `pivot_longer()` with a regex pattern to split wide-format indicator data into
+# long format.
+# - Extracts both the value type (numerator, denominator, seqic, lower_ci,
+# upper_ci) and the indicator code (e.g., "8", "8_all") into separate
+# components.
+# - Uses `.value` in `names_to` to spread the value types into columns.
+# - Renames `seqic` to `performance` and standardizes `lower_ci` and `upper_ci` to
+# `lower ci` and `upper ci` for readability.
 #
-# Resulting output includes columns: Year, Service Area, Indicator,
-#   numerator, denominator, and performance.
-reshape_seqic_indicators <- function(data) {
+# Optional renaming parameters (`rename_cols`, `column_pattern`,
+# `match_pattern`, `replace_with`) allow users to dynamically standardize
+# indicator suffixes (e.g., converting "_8" to "_8_all").
+#
+# Returns a long-format tibble with columns: indicator, numerator, denominator,
+# performance, lower ci, and upper ci, along with any grouping variables like
+# Year, Service Area, etc.
+
+reshape_seqic_indicators <- function(
+  data,
+  rename_cols = FALSE, # Whether to apply dynamic renaming to columns
+  column_pattern = NULL, # Regex pattern to match columns of interest
+  match_pattern = NULL, # Regex pattern to match suffixes needing renaming
+  replace_with = NULL # Replacement string to apply if renaming is enabled
+) {
+  # If dynamic renaming is requested but pattern/replacement is missing, throw error
+  if (rename_cols) {
+    if (
+      is.null(match_pattern) || is.null(replace_with) || is.null(column_pattern)
+    ) {
+      rlang::abort(
+        "If `rename_cols = TRUE`, both `match_pattern` and `replace_with` must be provided."
+      )
+    }
+
+    # Apply regex replacement to any column names matching lower/upper CI patterns
+    data <- data |>
+      dplyr::rename_with(
+        .cols = tidyselect::matches(column_pattern), # Select only CI-related columns
+        ~ stringr::str_replace_all(
+          .,
+          pattern = match_pattern,
+          replacement = replace_with
+        )
+      )
+  }
+
+  # Reshape wide-format indicator columns to long format using `pivot_longer()`
   data |>
     tidyr::pivot_longer(
       cols = tidyselect::starts_with(c(
@@ -252,15 +385,17 @@ reshape_seqic_indicators <- function(data) {
         "lower_ci",
         "upper_ci"
       )),
-      names_to = c(".value", "indicator"),
-      names_pattern = "(numerator|denominator|seqic|lower_ci|upper_ci)_(\\d+[a-z]?)"
+      names_to = c(".value", "indicator"), # Use `.value` to keep value type columns separate
+      names_pattern = "(numerator|denominator|seqic|lower_ci|upper_ci)_(\\d+[a-z]?_?\\w*_?\\w*)"
+      # This regex splits names into the value type (e.g., numerator) and the indicator (e.g., 8_all)
     ) |>
     dplyr::rename(
-      performance = seqic,
+      performance = seqic, # Rename for clarity
       `lower ci` = lower_ci,
       `upper ci` = upper_ci
     )
 }
+
 
 # match_seqic_indicator()
 # This function searches for the first matching SEQIC indicator code
@@ -325,7 +460,14 @@ match_seqic_indicator <- function(
 # 1. Calculate comparison data grouped by region or trauma level.
 # 2. Use this function to prepare those data for joining with agency-level outputs.
 
-format_seqic_comparison <- function(data, type = c("region", "level")) {
+format_seqic_comparison <- function(
+  data,
+  type = c("region", "level"),
+  rename_cols = FALSE, # Whether to apply dynamic renaming to columns
+  column_pattern = NULL, # Regex pattern to match columns of interest
+  match_pattern = NULL, # Regex pattern to match suffixes needing renaming
+  replace_with = NULL # Replacement string to apply if renaming is enabled
+) {
   type <- rlang::arg_match(type)
 
   # Determine appropriate name
@@ -335,13 +477,36 @@ format_seqic_comparison <- function(data, type = c("region", "level")) {
   )
 
   data |>
-    reshape_seqic_indicators() |>
+    reshape_seqic_indicators(
+      rename_cols = rename_cols, # Whether to apply dynamic renaming to columns
+      column_pattern = column_pattern, # Regex pattern to match columns of interest
+      match_pattern = match_pattern, # Regex pattern to match suffixes needing renaming
+      replace_with = replace_with # Replacement string to apply if renaming is enabled
+    ) |>
     match_seqic_indicator(col = indicator, performance_col = performance) |>
     dplyr::select(-c(name, numerator, denominator, goal)) |>
     dplyr::rename(!!perf_col := performance)
 }
 
-# join comparison data to SEQIC results
+# Join comparison benchmarks to SEQIC results and format for reporting
+#
+# This function merges SEQIC performance results with comparison benchmarks
+# at both the state level (`data_level`) and the regional level (`data_region`).
+#
+# It performs the following operations:
+# - Joins `data` to `data_level` by Year, Level I/II designation, and indicator code.
+# - Joins `data` to `data_region` by Year, Service Area, and indicator code.
+# - Applies `pretty_percent()` formatting from the traumar package to all relevant
+#   percentage-based columns, rounding to 2 decimal places and preserving `NA` values.
+# - Standardizes all column names to lowercase.
+# - Renames `level_i_ii` to `level` for consistency in output.
+#
+# Expected inputs:
+# - `data`: Long-format SEQIC results with columns like Year, Level_I_II, Service Area, and indicator.
+# - `data_level`: State-level comparison data, matched on Year, Level_I_II, and indicator.
+# - `data_region`: Region-level comparison data, matched on Year, Service Area, and indicator.
+#
+# Returns a formatted tibble with performance values and comparisons ready for tabular report output.
 join_comparison_data <- function(data, data_level, data_region) {
   data |>
     dplyr::left_join(
