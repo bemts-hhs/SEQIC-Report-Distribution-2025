@@ -263,7 +263,7 @@ dynamic_rm_bin_summary <- function(
       "Indicator 9f By TTA and Risk Group - Time from Decision to D/C to Physical D/C > 2 Hours Among Transferred Patients",
       "Indicator 10a - Major Trauma With Limited-to-No TTA at Definitive Care (Cribari)",
       "Indicator 10b - Minor Trauma With the Highest Level TTA at Definitive Care",
-      "Indicator 10c - Major Trauma With Limited-to-No TTA at Definitive Care (MOdified Cribari)",
+      "Indicator 10c - Major Trauma With Limited-to-No TTA at Definitive Care (Modified Cribari)",
       "Indicator 11 - ISS < 9 With ED LOS < 24 Hours Among Patients Transferred to Definitive Care",
       "Indicator 12 - Incidents Submitted Within 60 Days of Patient Discharge",
       "Indicator 13 - Incidents with Validity Score > 84"
@@ -283,7 +283,7 @@ dynamic_rm_bin_summary <- function(
       NA_real_,
       NA_real_,
       NA_real_,
-      1,
+      0,
       0,
       NA_real_,
       NA_real_,

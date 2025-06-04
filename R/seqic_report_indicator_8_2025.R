@@ -198,10 +198,388 @@ seqic_indicator_8_results <- seqic_indicator_8_results_overall |>
   dplyr::rename_with(~ tolower(.)) |>
   dplyr::rename(level = level_i_ii)
 
+###_____________________________________________________________________________
+### State, Region, and Verification Level Performance Reporting
+###_____________________________________________________________________________
+
+# state level
+seqic_indicator_8_results_state_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_all"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Risk_Definition = "All") |>
+  dplyr::relocate(Risk_Definition, .before = indicator)
+
+# state level - risk groups
+seqic_indicator_8_results_state_risk <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_risk"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(
+    Risk_Definition = ifelse(
+      is.na(Risk_Definition),
+      "Missing",
+      Risk_Definition
+    )
+  )
+
+# union the state level tables
+seqic_indicator_8_results_state <- seqic_indicator_8_results_state_overall |>
+  dplyr::bind_rows(seqic_indicator_8_results_state_risk) |>
+  dplyr::mutate(
+    Risk_Definition = factor(
+      Risk_Definition,
+      levels = c("All", "Low", "Moderate", "High", "Missing")
+    )
+  ) |>
+  dplyr::arrange(Year, Risk_Definition)
+
+# state level - by age group
+seqic_indicator_8_results_state_overall_age <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Age_Range"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_all"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Risk_Definition = "All") |>
+  dplyr::relocate(Risk_Definition, .before = indicator) |>
+  dplyr::mutate(
+    Age_Range = ifelse(is.na(Age_Range), "Missing", Age_Range),
+    Age_Range = stringr::str_replace(
+      string = Age_Range,
+      pattern = "-",
+      replacement = " to "
+    ),
+    Age_Range = factor(
+      Age_Range,
+      levels = c(
+        "0 to 9",
+        "10 to 19",
+        "20 to 29",
+        "30 to 39",
+        "40 to 49",
+        "50 to 59",
+        "60 to 69",
+        "70 to 79",
+        "80 to 89",
+        "90 to 99",
+        "100+",
+        "Missing"
+      )
+    )
+  ) |>
+  dplyr::arrange(Year, Age_Range)
+
+# state level - risk groups
+seqic_indicator_8_results_state_risk_age <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Age_Range"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_risk"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(
+    Risk_Definition = ifelse(
+      is.na(Risk_Definition),
+      "Missing",
+      Risk_Definition
+    )
+  ) |>
+  dplyr::mutate(
+    Age_Range = ifelse(is.na(Age_Range), "Missing", Age_Range),
+    Age_Range = stringr::str_replace(
+      string = Age_Range,
+      pattern = "-",
+      replacement = " to "
+    ),
+    Age_Range = factor(
+      Age_Range,
+      levels = c(
+        "0 to 9",
+        "10 to 19",
+        "20 to 29",
+        "30 to 39",
+        "40 to 49",
+        "50 to 59",
+        "60 to 69",
+        "70 to 79",
+        "80 to 89",
+        "90 to 99",
+        "100+",
+        "Missing"
+      )
+    )
+  ) |>
+  dplyr::arrange(Year, Age_Range)
+
+# union the state level age group tables
+seqic_indicator_8_results_state_age <- seqic_indicator_8_results_state_overall_age |>
+  dplyr::bind_rows(seqic_indicator_8_results_state_risk_age) |>
+  dplyr::mutate(
+    Risk_Definition = factor(
+      Risk_Definition,
+      levels = c("All", "Low", "Moderate", "High", "Missing")
+    )
+  ) |>
+  dplyr::arrange(Year, Age_Range, Risk_Definition)
+
+# service areas - overall
+seqic_indicator_8_results_service_areas_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Service Area"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_all"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Risk_Definition = "All") |>
+  dplyr::relocate(Risk_Definition, .before = indicator)
+
+# service areas - risk groups
+seqic_indicator_8_results_service_areas_risk <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Service Area"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_risk"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(
+    Risk_Definition = ifelse(
+      is.na(Risk_Definition),
+      "Missing",
+      Risk_Definition
+    )
+  )
+
+# union the region level tables
+seqic_indicator_8_results_service_areas <- seqic_indicator_8_results_service_areas_overall |>
+  dplyr::bind_rows(seqic_indicator_8_results_service_areas_risk) |>
+  dplyr::mutate(
+    Risk_Definition = factor(
+      Risk_Definition,
+      levels = c("All", "Low", "Moderate", "High", "Missing")
+    )
+  ) |>
+  dplyr::arrange(Year, `Service Area`, Risk_Definition)
+
+# trauma center verification levels overall
+seqic_indicator_8_results_verification_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Level_I_II"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_all"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Risk_Definition = "All") |>
+  dplyr::relocate(Risk_Definition, .before = indicator)
+
+# trauma center verification levels - risk groups
+seqic_indicator_8_results_verification_risk <- trauma_2020_2024 |>
+  traumar::seqic_indicator_8(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    mortality_indicator = Death,
+    risk_group = Risk_Definition,
+    groups = c("Year", "Level_I_II"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |>
+  reshape_seqic_indicators(
+    rename_cols = TRUE,
+    column_pattern = "(?:lower|upper)_ci",
+    match_pattern = "_8$",
+    replace_with = "_8_risk"
+  ) |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(
+    Risk_Definition = ifelse(
+      is.na(Risk_Definition),
+      "Missing",
+      Risk_Definition
+    )
+  )
+
+# union the verification level tables
+seqic_indicator_8_results_verification <- seqic_indicator_8_results_verification_overall |>
+  dplyr::bind_rows(seqic_indicator_8_results_verification_risk) |>
+  dplyr::mutate(
+    Risk_Definition = factor(
+      Risk_Definition,
+      levels = c("All", "Low", "Moderate", "High", "Missing")
+    )
+  ) |>
+  dplyr::arrange(Year, Level_I_II, Risk_Definition)
+
 ### Export ####
+
+# hospital reporting
 export_seqic_data(
   agency_names = unique(trauma_2024$`Current Facility Name`),
   facility_name_col = `current facility name`,
   seqic_results = seqic_indicator_8_results,
   indicator = "indicator_8"
+)
+
+# state level reporting
+readr::write_csv(
+  x = seqic_indicator_8_results_state,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/8/seqic_indicator_8_results_state.csv"
+)
+
+# state level by age reporting
+readr::write_csv(
+  x = seqic_indicator_8_results_state_age,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/8/seqic_indicator_8_results_state_age.csv"
+)
+
+# service area level reporting
+readr::write_csv(
+  x = seqic_indicator_8_results_service_areas,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/8/seqic_indicator_8_results_service_areas.csv"
+)
+
+# verification level reporting
+readr::write_csv(
+  x = seqic_indicator_8_results_verification,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/8/seqic_indicator_8_results_verification.csv"
 )

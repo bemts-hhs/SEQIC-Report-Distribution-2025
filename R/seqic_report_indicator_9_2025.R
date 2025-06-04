@@ -446,6 +446,305 @@ seqic_indicator_9_results_activations_risk <- trauma_2020_2024 |>
   dplyr::rename_with(~ tolower(.)) |>
   dplyr::rename(level = level_i_ii)
 
+###_____________________________________________________________________________
+### State, Region, and Verification Level Performance Reporting
+###_____________________________________________________________________________
+
+# state level - overall
+seqic_indicator_9_results_state_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |> # get the first list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Trauma_Team_Activated = "All Records") |>
+  dplyr::relocate(Trauma_Team_Activated, .after = indicator)
+
+# state level - trauma team activations
+seqic_indicator_9_results_state_activations <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |> # get the first list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  ))
+
+# union the state level tables
+seqic_indicator_9_results_state <- seqic_indicator_9_results_state_overall |>
+  dplyr::bind_rows(seqic_indicator_9_results_state_activations)
+
+# state level - overall by age grtoup
+seqic_indicator_9_results_state_overall_age <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Age_Range"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |> # get the first list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Trauma_Team_Activated = "All Records") |>
+  dplyr::relocate(Trauma_Team_Activated, .after = indicator) |>
+  dplyr::mutate(
+    Age_Range = ifelse(is.na(Age_Range), "Missing", Age_Range),
+    Age_Range = stringr::str_replace(
+      string = Age_Range,
+      pattern = "-",
+      replacement = " to "
+    ),
+    Age_Range = factor(
+      Age_Range,
+      levels = c(
+        "0 to 9",
+        "10 to 19",
+        "20 to 29",
+        "30 to 39",
+        "40 to 49",
+        "50 to 59",
+        "60 to 69",
+        "70 to 79",
+        "80 to 89",
+        "90 to 99",
+        "100+",
+        "Missing"
+      )
+    )
+  ) |>
+  dplyr::arrange(Year, Age_Range)
+
+# state level - by age group and trauma team activations
+seqic_indicator_9_results_state_activations_age <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Age_Range"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |> # get the first list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(
+    Age_Range = ifelse(is.na(Age_Range), "Missing", Age_Range),
+    Age_Range = stringr::str_replace(
+      string = Age_Range,
+      pattern = "-",
+      replacement = " to "
+    ),
+    Age_Range = factor(
+      Age_Range,
+      levels = c(
+        "0 to 9",
+        "10 to 19",
+        "20 to 29",
+        "30 to 39",
+        "40 to 49",
+        "50 to 59",
+        "60 to 69",
+        "70 to 79",
+        "80 to 89",
+        "90 to 99",
+        "100+",
+        "Missing"
+      )
+    )
+  ) |>
+  dplyr::arrange(Year, Age_Range)
+
+# union the state level tables
+seqic_indicator_9_results_state_age <- seqic_indicator_9_results_state_overall_age |>
+  dplyr::bind_rows(seqic_indicator_9_results_state_activations_age) |>
+  dplyr::arrange(Year, Age_Range, Trauma_Team_Activated)
+
+# Regions - overall
+seqic_indicator_9_results_service_areas_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Service Area"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |> # get the first list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Trauma_Team_Activated = "All Records") |>
+  dplyr::relocate(Trauma_Team_Activated, .after = `Service Area`)
+
+# Regions - by trauma team activation status
+seqic_indicator_9_results_service_areas_activation <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Service Area"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |> # get the second list element, which houses the overall results
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  ))
+
+# Union the region tibbles
+seqic_indicator_9_results_service_areas <- seqic_indicator_9_results_service_areas_overall |>
+  dplyr::bind_rows(seqic_indicator_9_results_service_areas_activation) |>
+  dplyr::arrange(`Service Area`, Year, Trauma_Team_Activated)
+
+# Level - overall
+seqic_indicator_9_results_verification_overall <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Level_I_II"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(1) |>
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  )) |>
+  dplyr::mutate(Trauma_Team_Activated = "All Records") |>
+  dplyr::relocate(Trauma_Team_Activated, .after = Level_I_II)
+
+# Level - by trauma team activation status
+seqic_indicator_9_results_verification_activation <- trauma_2020_2024 |>
+  traumar::seqic_indicator_9(
+    level = Level,
+    unique_incident_id = Unique_Incident_ID,
+    transfer_out_indicator = Acute_Transfer_Out,
+    transport_method = Transport_To_Your_Facility_By,
+    trauma_team_activated = Trauma_Team_Activated,
+    risk_group = Risk_Definition,
+    ed_LOS = Length_of_Stay,
+    ed_decision_LOS = Time_From_ED_Arrival_to_Decision_Minutes,
+    ed_decision_discharge_LOS = Time_From_ED_Decision_to_Discharge,
+    groups = c("Year", "Level_I_II"),
+    calculate_ci = "w"
+  ) |>
+  purrr::pluck(2) |>
+  reshape_seqic_indicators() |>
+  match_seqic_indicator(col = indicator, performance_col = performance) |>
+  dplyr::mutate(dplyr::across(
+    c(performance, goal, `lower ci`, `upper ci`),
+    ~ ifelse(
+      is.na(.),
+      NA_real_,
+      traumar::pretty_percent(variable = ., n_decimal = 2)
+    )
+  ))
+
+# Union the level tibbles
+seqic_indicator_9_results_verification <- seqic_indicator_9_results_verification_overall |>
+  dplyr::bind_rows(seqic_indicator_9_results_verification_activation) |>
+  dplyr::arrange(`Level_I_II`, Year, Trauma_Team_Activated)
+
 ### Export ####
 
 # overall results from first two list elements in the traumar output
@@ -470,4 +769,28 @@ export_seqic_data(
   facility_name_col = `current facility name`,
   seqic_results = seqic_indicator_9_results_activations_risk,
   indicator = "indicator_9_activations_risk"
+)
+
+# state level reporting
+readr::write_csv(
+  x = seqic_indicator_9_results_state,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/9/seqic_indicator_9_results_state.csv"
+)
+
+# state level by age reporting
+readr::write_csv(
+  x = seqic_indicator_9_results_state_age,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/9/seqic_indicator_9_results_state_age.csv"
+)
+
+# service area level reporting
+readr::write_csv(
+  x = seqic_indicator_9_results_service_areas,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/9/seqic_indicator_9_results_service_areas.csv"
+)
+
+# verification level reporting
+readr::write_csv(
+  x = seqic_indicator_9_results_verification,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/9/seqic_indicator_9_results_verification.csv"
 )
