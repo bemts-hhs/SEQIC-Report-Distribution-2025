@@ -578,7 +578,7 @@ export_seqic_data <- function(
   facility_name_col,
   seqic_results,
   indicator,
-  output_dir_root = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/output/"
+  output_dir_root = Sys.getenv("OUTPUT_FILE_PATH")
 ) {
   # Validate input
   if (!tibble::is_tibble(seqic_results) && !is.data.frame(seqic_results)) {

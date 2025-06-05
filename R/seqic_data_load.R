@@ -5,26 +5,33 @@
 ### 5/23/2025 for 2024 data, for 2020-2023 data - 5/1/2025
 ###_____________________________________________________________________________
 
+# Secure creds and path
+path_2020 <- Sys.getenv("FACILITY_PATH_2020")
+path_2021 <- Sys.getenv("FACILITY_PATH_2021")
+path_2022 <- Sys.getenv("FACILITY_PATH_2022")
+path_2023 <- Sys.getenv("FACILITY_PATH_2023")
+path_2024 <- Sys.getenv("FACILITY_PATH_2024")
+
 # load files from source
 trauma_2020 <-
   readr::read_csv(
-    "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/TRAUMA DATA/SEQIC/trauma_2020.csv"
+    path_2020
   )
 trauma_2021 <-
   readr::read_csv(
-    "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/TRAUMA DATA/SEQIC/trauma_2021.csv"
+    path_2021
   )
 trauma_2022 <-
   readr::read_csv(
-    "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/TRAUMA DATA/SEQIC/trauma_2022.csv"
+    path_2022
   )
 trauma_2023 <-
   readr::read_csv(
-    "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/TRAUMA DATA/SEQIC/trauma_2023.csv"
+    path_2023
   )
 trauma_2024 <-
   readr::read_csv(
-    "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/TRAUMA DATA/SEQIC/trauma_2024.csv"
+    path_2024
   )
 
 # Get data into one file for all years for reporting across years
