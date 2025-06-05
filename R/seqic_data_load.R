@@ -6,11 +6,11 @@
 ###_____________________________________________________________________________
 
 # Secure creds and path
-path_2020 <- Sys.getenv("FACILITY_PATH_2020")
-path_2021 <- Sys.getenv("FACILITY_PATH_2021")
-path_2022 <- Sys.getenv("FACILITY_PATH_2022")
-path_2023 <- Sys.getenv("FACILITY_PATH_2023")
-path_2024 <- Sys.getenv("FACILITY_PATH_2024")
+path_2020 <- Sys.getenv("FILE_PATH_2020")
+path_2021 <- Sys.getenv("FILE_PATH_2021")
+path_2022 <- Sys.getenv("FILE_PATH_2022")
+path_2023 <- Sys.getenv("FILE_PATH_2023")
+path_2024 <- Sys.getenv("FILE_PATH_2024")
 
 # load files from source
 trauma_2020 <-

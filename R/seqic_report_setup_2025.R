@@ -22,7 +22,10 @@
 #     "devtools",
 #     "renv",
 #     "roxygen2",
-#     "roxygen2md"
+#     "roxygen2md",
+#     "blastula",
+#     "emayili",
+#     "Microsoft365R"
 #   )
 # )
 
@@ -37,6 +40,9 @@
 # library(renv)
 # library(roxygen2)
 # library(roxygen2md)
+# library(blastula)
+# library(emayili)
+# library(Microsoft365R)
 
 # Handy Functions --------------------------------------------------------------
 
@@ -537,6 +543,155 @@ join_comparison_data <- function(data, data_level, data_region) {
 }
 
 ### DATA EXPORT FACILITIES =====================================================
+
+###_____________________________________________________________________________
+# send_facility_emails()
+#
+# Sends individualized emails with attachments to facilities listed in a XLSX
+# file.
+# Each row in the input file should contain the email address and facility name.
+#
+# For each facility, the function:
+# - Locates the folder of files using the facility name and a secure base path
+# - Attaches all files found in that folder
+# - Sends an HTML email with a consistent message via Office365 SMTP
+# - Logs success/failure for each email to a CSV file
+#
+# Email credentials and file paths are pulled securely from environment
+# variables:
+#   - EMAIL_USER: Office365 sender address
+#   - EMAIL_PASS: App password for SMTP
+#   - EMAIL_HOST: SMTP server host (e.g., smtp.office365.com)
+#   - FACILITY_PATH: Root path where per-facility files are stored
+#
+# Input:
+#   recipient_file - path to a CSV with columns: Facility, Email
+#   log_path       - path to write the email send log (default: "email_log.csv")
+#
+# Requirements:
+#   Packages: blastula, emayili, dplyr, readr, glue, stringr, fs, purrr, tibble
+#
+# Notes:
+#   - Files are not hardcoded, paths remain secure
+#   - This function is suitable for open-source workflows with sensitive output
+###_____________________________________________________________________________
+send_facility_emails <- function(
+  recipient_file = Sys.getenv("TPM_CONTACTS"),
+  base_path = Sys.getenv("FACILITY_PATH"),
+  log_path = "email_log.csv"
+) {
+  # Authenticate Outlook session (interactive if token not cached)
+  outl <- Microsoft365R::get_business_outlook()
+
+  # Read recipient data
+  recipients <- readxl::read_excel(recipient_file)
+
+  # Initialize log
+  log <- tibble::tibble(
+    timestamp = as.POSIXct(character()),
+    facility = character(),
+    email = character(),
+    status = character(),
+    message = character()
+  )
+
+  # Loop over recipients
+  purrr::walk2(
+    recipients$email,
+    recipients$file,
+    function(email, file) {
+      timestamp <- Sys.time()
+      cli::cli_inform("Processing email: {email} | file: {file}")
+
+      if (is.na(file) || trimws(file) == "") {
+        log <<- dplyr::add_row(
+          log,
+          tibble::tibble(
+            timestamp,
+            facility = NA_character_,
+            email,
+            status = "skipped",
+            message = "Missing file location"
+          )
+        )
+        return()
+      }
+
+      facility_path <- fs::path(base_path, file)
+      facility <- recipients$tcf[recipients$file == file][1]
+
+      if (!fs::dir_exists(facility_path)) {
+        log <<- dplyr::add_row(
+          log,
+          tibble::tibble(
+            timestamp,
+            facility,
+            email,
+            status = "failed",
+            message = "Directory not found"
+          )
+        )
+        return()
+      }
+
+      attachments <- fs::dir_ls(facility_path, type = "file")
+
+      body <- blastula::compose_email(
+        body = blastula::md(glue::glue(
+          "Dear {facility},
+
+          Please find attached your **2024 SEQIC reports**.
+          Let us know if you have any questions.
+
+          Sincerely,
+          Dr. Foss
+          Iowa Department of Health & Human Services"
+        )),
+        footer = blastula::md("This email was sent via Microsoft365R.")
+      )
+
+      tryCatch(
+        {
+          em <- outl$create_email(
+            body = body,
+            subject = glue::glue(
+              "CONFIDENTIAL - 2024 SEQIC Report for {facility}"
+            ),
+            to = email
+          )
+
+          purrr::walk(attachments, em$add_attachment)
+          em$send()
+
+          log <<- dplyr::add_row(
+            log,
+            tibble::tibble(
+              timestamp,
+              facility,
+              email,
+              status = "sent",
+              message = "OK"
+            )
+          )
+        },
+        error = function(e) {
+          log <<- dplyr::add_row(
+            log,
+            tibble::tibble(
+              timestamp,
+              facility,
+              email,
+              status = "failed",
+              message = e$message
+            )
+          )
+        }
+      )
+    }
+  )
+
+  readr::write_csv(log, fs::path(base_path, log_path))
+}
 
 # ---- export_seqic_data ----
 # Export SEQIC Indicator Results to CSV by Agency
