@@ -191,16 +191,10 @@ export_seqic_data(
 )
 
 # state level reporting
-readr::write_csv(
-  x = seqic_indicator_1_results_state,
-  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/1/seqic_indicator_1_results_state.csv"
-)
+export_state_data(x = seqic_indicator_1_results_state)
 
 # state level by age reporting
-readr::write_csv(
-  x = seqic_indicator_1_results_state_age,
-  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/1/seqic_indicator_1_results_state_age.csv"
-)
+export_state_data(x = seqic_indicator_1_results_state_age)
 
 # service area level reporting
 readr::write_csv(

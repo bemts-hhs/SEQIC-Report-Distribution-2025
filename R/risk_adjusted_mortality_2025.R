@@ -6,13 +6,7 @@
 ### environment
 ###_____________________________________________________________________________
 
-### W, M, and Z Scores #####
-
-# given that traumar does not provide a grouping structure for the
-# traumar::trauma_performance() function, we will use tidyr::nest() to
-# do the grouping
-
-# Clean the data and prepare for TRISS analyses
+# Clean the data and prepare for TRISS analyses ----
 trauma_2020_2024_clean <- trauma_2020_2024 |>
   dplyr::filter(!is.na(Probability_of_Survival_Calc)) |>
   dplyr::mutate(Alive = ifelse(Death, 0, 1)) |>
@@ -20,7 +14,15 @@ trauma_2020_2024_clean <- trauma_2020_2024 |>
   dplyr::distinct(Unique_Incident_ID, .keep_all = TRUE) |>
   dplyr::ungroup()
 
-# iterate over groups - Year and facility
+# Facility Level Performance Metrics ----
+
+# given that traumar does not provide a grouping structure for the
+# traumar::trauma_performance() function, we will use tidyr::nest() to
+# do the grouping
+
+## Facility Level W, M, and Z Scores ----
+
+### Facility Level iterate over groups - Year and facility ----
 trauma_performance_result_years <- trauma_2020_2024_clean |>
   tidyr::nest(data = -c(Year, `Current Facility Name`)) |>
   dplyr::mutate(
@@ -38,8 +40,9 @@ trauma_performance_result_years <- trauma_2020_2024_clean |>
   tidyr::unnest(results) |>
   dplyr::arrange(`Current Facility Name`, Year)
 
-# iterate over groups - facility, mechanism of injury do not add year as a
-# stratum given that some counts will be very small in groups
+### Facility Level iterate over trauma type groups ----
+### facility, mechanism of injury do not add year as a stratum given that some
+### counts will be very small in groups
 trauma_performance_result_mech <- trauma_2020_2024_clean |>
   tidyr::nest(data = -c(`Current Facility Name`, Trauma_Type)) |>
   dplyr::mutate(
@@ -61,8 +64,9 @@ trauma_performance_result_mech <- trauma_2020_2024_clean |>
     Trauma_Type = ifelse(is.na(Trauma_Type), "Missing", Trauma_Type)
   )
 
-# iterate over groups - facility, mechanism of injury do not add year as a
-# stratum given that some counts will be very small in groups
+### Facility Level iterate over TTA groups ----
+### facility, mechanism of injury do not add year as a stratum given that some
+### counts will be very small in groups
 trauma_performance_result_tta <- trauma_2020_2024_clean |>
   tidyr::nest(
     data = -c(`Current Facility Name`, Trauma_Team_Activated)
@@ -83,7 +87,7 @@ trauma_performance_result_tta <- trauma_2020_2024_clean |>
   dplyr::arrange(`Current Facility Name`, Trauma_Team_Activated) |>
   dplyr::relocate(Trauma_Team_Activated, .after = `Current Facility Name`)
 
-### Relative Mortality Metric ####
+## Facility Level Relative Mortality Metric ----
 rm_summary_results <- trauma_2020_2024_clean |>
   tidyr::nest(data = -c(Year, `Current Facility Name`)) |>
   dplyr::mutate(
@@ -104,9 +108,97 @@ rm_summary_results <- trauma_2020_2024_clean |>
   tidyr::unnest(results) |>
   dplyr::arrange(`Current Facility Name`, Year, bin_number)
 
-### EXPORT ####
+# Calculate metrics at the state level ----
+## State Level W, M, and Z scores ----
+### State Level iterate over groups - Year and facility ----
+trauma_performance_result_years_state <- trauma_2020_2024_clean |>
+  tidyr::nest(data = -Year) |>
+  dplyr::mutate(
+    results = purrr::map(
+      data,
+      ~ traumar::trauma_performance(
+        df = .x,
+        Ps_col = Probability_of_Survival_Calc,
+        outcome_col = Death,
+        z_method = "survival"
+      )
+    )
+  ) |>
+  dplyr::select(-data) |>
+  tidyr::unnest(results) |>
+  dplyr::arrange(Year)
 
-# W, M, and Z scores grouped by year
+### State Level iterate over trauma type groups ----
+### facility, mechanism of injury do not add year as a stratum given that some
+### counts will be very small in groups
+trauma_performance_result_mech_state <- trauma_2020_2024_clean |>
+  tidyr::nest(data = -Trauma_Type) |>
+  dplyr::mutate(
+    results = purrr::map(
+      data,
+      ~ traumar::trauma_performance(
+        df = .x,
+        Ps_col = Probability_of_Survival_Calc,
+        outcome_col = Death,
+        z_method = "survival"
+      )
+    )
+  ) |>
+  dplyr::select(-data) |>
+  tidyr::unnest(results) |>
+  dplyr::arrange(Trauma_Type) |>
+  dplyr::mutate(
+    Trauma_Type = ifelse(is.na(Trauma_Type), "Missing", Trauma_Type)
+  )
+
+### State Level iterate over TTA groups ----
+### facility, mechanism of injury do not add year as a stratum given that some
+### counts will be very small in groups
+trauma_performance_result_tta_state <- trauma_2020_2024_clean |>
+  tidyr::nest(
+    data = -Trauma_Team_Activated
+  ) |>
+  dplyr::mutate(
+    results = purrr::map(
+      data,
+      ~ traumar::trauma_performance(
+        df = .x,
+        Ps_col = Probability_of_Survival_Calc,
+        outcome_col = Death,
+        z_method = "survival"
+      )
+    )
+  ) |>
+  dplyr::select(-data) |>
+  tidyr::unnest(results) |>
+  dplyr::arrange(Trauma_Team_Activated)
+
+## State Level Relative Mortality Metric ----
+rm_summary_results_state <- trauma_2020_2024_clean |>
+  tidyr::nest(data = -Year) |>
+  dplyr::mutate(
+    results = purrr::map(
+      data,
+      ~ dynamic_rm_bin_summary(
+        data = .x,
+        Ps_col = Probability_of_Survival_Calc,
+        outcome_col = Alive,
+        group_vars = NULL,
+        n_samples = 1000,
+        bootstrap_ci = TRUE,
+        seed = 10232015
+      )
+    )
+  ) |>
+  dplyr::select(-data) |>
+  tidyr::unnest(results) |>
+  dplyr::arrange(Year, bin_number)
+
+# EXPORT ----
+
+## Facility Level Exports ----
+
+### Export Facility Level W, M, and Z scores grouped by year ----
 export_seqic_data(
   agency_names = unique(trauma_2024$`Current Facility Name`),
   facility_name_col = `Current Facility Name`,
@@ -114,7 +206,7 @@ export_seqic_data(
   indicator = "_wmz_years"
 )
 
-# W, M, and Z scores grouped by mechanism of injury
+### Export Facility Level W, M, and Z scores grouped by mechanism of injury ----
 export_seqic_data(
   agency_names = unique(trauma_2024$`Current Facility Name`),
   facility_name_col = `Current Facility Name`,
@@ -122,7 +214,7 @@ export_seqic_data(
   indicator = "_wmz_mechanism"
 )
 
-# W, M, and Z scores grouped by whether a trauma alert was called
+### Export Facility Level W, M, and Z scores grouped by TTA ----
 export_seqic_data(
   agency_names = unique(trauma_2024$`Current Facility Name`),
   facility_name_col = `Current Facility Name`,
@@ -130,7 +222,37 @@ export_seqic_data(
   indicator = "_wmz_tta"
 )
 
-# RMM statistics by year
+### Export Facility Level RMM statistics by year ----
+export_seqic_data(
+  agency_names = unique(trauma_2024$`Current Facility Name`),
+  facility_name_col = `Current Facility Name`,
+  seqic_results = rm_summary_results,
+  indicator = "_rmm_years"
+)
+
+## export performance by year and region at the state level ----
+
+### STATE LEVEL W, M, and Z scores grouped by year ----
+readr::write_csv(
+  x = trauma_performance_result_years_state,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/rmm_wmz/trauma_performance_result_years_state.csv"
+)
+
+### STATE LEVEL W, M, and Z scores grouped by mechanism of injury ----
+readr::write_csv(
+  x = trauma_performance_result_mech_state,
+  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/rmm_wmz/trauma_performance_result_mech_state.csv"
+)
+
+### STATE LEVEL W, M, and Z scores grouped by whether a TTA was called ----
+export_seqic_data(
+  agency_names = unique(trauma_2024$`Current Facility Name`),
+  facility_name_col = `Current Facility Name`,
+  seqic_results = trauma_performance_result_tta,
+  indicator = "_wmz_tta"
+)
+
+### STATE LEVEL RMM statistics by year ----
 export_seqic_data(
   agency_names = unique(trauma_2024$`Current Facility Name`),
   facility_name_col = `Current Facility Name`,

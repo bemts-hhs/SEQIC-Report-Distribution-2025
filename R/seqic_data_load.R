@@ -40,28 +40,28 @@ trauma_2024 <-
 trauma_2020_2024 <- dplyr::bind_rows(
   trauma_2020 |>
     dplyr::mutate(dplyr::across(
-      tidyselect::matches("_zip$"),
+      tidyselect::matches("_zip$|_fips$"),
       ~ as.character(.)
     )),
   trauma_2021 |>
     dplyr::mutate(dplyr::across(
-      tidyselect::matches("_zip$"),
+      tidyselect::matches("_zip$|_fips$"),
       ~ as.character(.)
     )),
   trauma_2022 |>
     dplyr::mutate(dplyr::across(
-      tidyselect::matches("_zip$"),
+      tidyselect::matches("_zip$|_fips$"),
       ~ as.character(.)
     )),
   trauma_2023 |>
     dplyr::mutate(dplyr::across(
-      tidyselect::matches("_zip$"),
+      tidyselect::matches("_zip$|_fips$"),
       ~ as.character(.)
     )),
   trauma_2024 |>
     dplyr::mutate(
       dplyr::across(
-        tidyselect::matches("_zip$"),
+        tidyselect::matches("_zip$|_fips$"),
         ~ as.character(.)
       ),
       Level = ifelse(
@@ -77,4 +77,80 @@ trauma_2020_2024 <- dplyr::bind_rows(
         Level_I_II
       )
     )
-)
+) |>
+  dplyr::mutate(
+    Level_I_II = ifelse(
+      `Current Facility Name` ==
+        "UnityPoint Health - Trinity Regional Medical Center" &
+        ED_Acute_Care_Admission_Date < as.Date("2018-04-01"),
+      "Level III",
+      ifelse(
+        `Current Facility Name` == "Mahaska Health" &
+          ED_Acute_Care_Admission_Date < as.Date("2018-07-01"),
+        "Level III",
+        ifelse(
+          `Current Facility Name` == "CHI Health Mercy Council Bluffs" &
+            ED_Acute_Care_Admission_Date < as.Date("2018-10-01"),
+          "Level IV",
+          ifelse(
+            `Current Facility Name` ==
+              "UnityPoint Health - Marshalltown Hospital" &
+              ED_Acute_Care_Admission_Date < as.Date("2018-12-01"),
+            "Level III",
+            ifelse(
+              `Current Facility Name` ==
+                "UnityPoint Health - Grinnell Regional Medical Center" &
+                ED_Acute_Care_Admission_Date < as.Date("2019-01-01"),
+              "Level III",
+              ifelse(
+                `Current Facility Name` ==
+                  "MercyOne North Iowa Medical Center" &
+                  ED_Acute_Care_Admission_Date < as.Date("2020-07-01"),
+                "Level I & II",
+                ifelse(
+                  `Current Facility Name` == "Pella Regional Health Center" &
+                    ED_Acute_Care_Admission_Date < as.Date("2020-08-01"),
+                  "Level III",
+                  ifelse(
+                    `Current Facility Name` ==
+                      "Genesis Medical Center, Davenport" &
+                      ED_Acute_Care_Admission_Date < as.Date("2021-10-01"),
+                    "Level I & II",
+                    ifelse(
+                      `Current Facility Name` ==
+                        "Southeast Iowa Regional Medical Center, West Burlington" &
+                        ED_Acute_Care_Admission_Date < as.Date("2021-12-01"),
+                      "Level III",
+                      ifelse(
+                        `Current Facility Name` ==
+                          "Southeast Iowa Regional Medical Center, West Burlington" &
+                          ED_Acute_Care_Admission_Date >= as.Date("2024-12-01"),
+                        "Level III",
+                        ifelse(
+                          `Current Facility Name` ==
+                            "Southeast Iowa Regional Medical Center, West Burlington" &
+                            ED_Acute_Care_Admission_Date >=
+                              as.Date("2021-12-01") &
+                            ED_Acute_Care_Admission_Date <
+                              as.Date("2024-12-01"),
+                          "Level IV",
+                          ifelse(
+                            `Current Facility Name` ==
+                              "UnityPoint Health - St. Luke's Hospital, Sioux CIty" &
+                              ED_Acute_Care_Admission_Date <
+                                as.Date("2024-10-01"),
+                            "Level I & II",
+                            Level_I_II
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
