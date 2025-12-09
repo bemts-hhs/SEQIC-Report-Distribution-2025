@@ -1,5 +1,4 @@
-### IOWA SEQIC REPORT PREP 2024 ----------------------------------------------
-
+# IOWA SEQIC REPORT PREP 2024 ----------------------------------------------
 # This script prepares for the analyses using the `traumar` package v1.2.0
 # For the shapefiles, it is assumed that the files are downloaded from
 # https://www.census.gov/cgi-bin/geo/shapefiles/index.php using the year 2024
@@ -7,9 +6,9 @@
 # Zip Code Tabulation Areas (ZCTAS) options in the dropdown dialogue to download
 # the files manually and put them in the directory used here.
 
-### PACKAGES -------------------------------------------------------------------
+## PACKAGES -------------------------------------------------------------------
 
-# CRAN versions ================================================================
+## CRAN versions ================================================================
 
 # install these packages if not already
 # install.packages(
@@ -46,7 +45,7 @@
 
 # Handy Functions --------------------------------------------------------------
 
-### CALCULATION FACILITIES =====================================================
+# CALCULATION FACILITIES =====================================================
 
 # Apply rm_bin_summary with dynamic parameters based on sample size
 #
@@ -136,7 +135,7 @@ dynamic_rm_bin_summary <- function(
   return(results)
 }
 
-### DATA MANIPULATION FACILITIES ===============================================
+# DATA MANIPULATION FACILITIES ===============================================
 
 ###_____________________________________________________________________________
 # Standard output from traumar is in wide format, with separate columns for each
@@ -542,7 +541,7 @@ join_comparison_data <- function(data, data_level, data_region) {
     dplyr::rename(level = level_i_ii)
 }
 
-### DATA EXPORT FACILITIES =====================================================
+# DATA EXPORT FACILITIES =====================================================
 
 ###_____________________________________________________________________________
 # send_facility_emails()
@@ -746,108 +745,148 @@ send_facility_emails <- function(
 ### state output folder
 state_output_folder <- Sys.getenv("STATE_OUTPUT_FILE_PATH")
 
-### export_state_data ----
+
+# export_state_data
+# Export State Data to CSV
+#
+# This function exports a given data frame or tibble to a CSV file. The file is saved in a dynamically generated
+# directory based on the provided root directory and subfolder name. The file name is constructed using the name
+# of the input data frame or tibble.
+#
+# Parameters:
+# - x: A data frame or tibble containing the data to be exported.
+#
+# - output_dir_root: A string specifying the root directory where the output file will be saved. Defaults to the
+#   value of the "STATE_OUTPUT_FILE_PATH" environment variable.
+#
+# - subfolder: A string specifying the subfolder name to be used in the output file path.
+#
+# Side Effects:
+# - Creates the output directory if it does not already exist.
+#
+# - Writes the data frame or tibble to a CSV file in the specified directory.
+#
+# Output:
+# - Returns `invisible(NULL)`; the primary function is the side-effect of file export.
+#
+# Workflow Context:
+# - Use this function to export state-level data to CSV files for further analysis or reporting.
+#
 export_state_data <- function(
   x,
-  output_dir_root = Sys.getenv("STATE_OUTPUT_FILE_PATH")
+  output_dir_root = Sys.getenv("STATE_OUTPUT_FILE_PATH"),
+  subfolder
 ) {
   # Validate input
+  # Check if 'x' is a tibble or data frame. If not, abort the function with an error message.
   if (!tibble::is_tibble(x) && !is.data.frame(x)) {
-    rlang::abort("`x` must be a data.frame or tibble.")
+    rlang::abort("`seqic_results` must be a data.frame or tibble.")
   }
 
+  # Get the name of 'x' as a character string
+  # This will be used to dynamically create the file name.
+  x_name <- deparse(substitute(x))
+
   # Create dynamic output path
+  # Construct the output directory path using the provided root directory.
   output_path <- fs::path(output_dir_root)
+  # Create the directory if it does not exist.
   fs::dir_create(output_path)
 
-  # write CSV
+  # Build file path and write CSV
+  # Construct the full file path by combining the output directory, subfolder, and the name of 'x' with a ".csv" extension.
+  file_path <- fs::path(
+    output_path,
+    subfolder,
+    paste0(x_name, ".csv")
+  )
+
+  # Write the data frame or tibble 'x' to the constructed file path in CSV format.
   readr::write_csv(x = x, file = file_path)
 }
 
-{
-  # ---- export_seqic_data ----
-  # Export SEQIC Indicator Results to CSV by Agency
-  #
-  # This function iterates over a vector of agency names and exports SEQIC
-  # indicator results (from a precomputed results tibble) to individual
-  # CSV files for each agency. Files are saved in dynamically generated
-  # subdirectories based on agency name.
-  #
-  # Parameters:
-  # - agency_names: A character vector of agency or facility names. Each name must
-  #   match values in the `Facility_Name` column of `seqic_results`.
-  #
-  # - seqic_results: A data frame or tibble of SEQIC indicator results that
-  #   includes a `Facility_Name` column used to filter results per agency.
-  #
-  # - indicator: A string indicating the indicator group (e.g., "1a_1f",
-  #   "4a_4b", "all_indicators") to name output files accordingly.
-  #
-  # Side Effects:
-  # - Creates output directories (if not already present) using:
-  #   `"C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/output/"`
-  #
-  # - Writes agency-specific CSV files to the directory with naming convention:
-  #   `{agency}_{indicator}.csv`
-  #
-  # - Logs progress, warnings, and a summary using the `cli` package.
-  #
-  # Output:
-  # - Returns `invisible(NULL)`; primary function is side-effect file export.
-  #
-  # Workflow Context:
-  # - Use this function after calculating and formatting SEQIC results with
-  #   `traumar::seqic_indicator_*()` and any additional wrangling or annotation.
-  # - Designed for batch export of customized reports at the agency level.
-  #
-  export_seqic_data <- function(
-    agency_names,
-    facility_name_col,
-    seqic_results,
-    indicator,
-    output_dir_root = Sys.getenv("OUTPUT_FILE_PATH")
-  ) {
-    # Validate input
-    if (!tibble::is_tibble(seqic_results) && !is.data.frame(seqic_results)) {
-      rlang::abort("`seqic_results` must be a data.frame or tibble.")
-    }
-
-    exported_count <- 0
-    skipped_count <- 0
-    agency_count <- length(agency_names)
-
-    for (agency in agency_names) {
-      temp <- seqic_results |>
-        dplyr::filter({{ facility_name_col }} == agency)
-
-      if (nrow(temp) == 0) {
-        cli::cli_warn("Skipped {agency}: no matching rows in `seqic_results`.")
-        skipped_count <- skipped_count + 1
-        next
-      }
-
-      # Create dynamic output path
-      output_path <- fs::path(output_dir_root, tolower(agency))
-      fs::dir_create(output_path)
-
-      # Build file path and write CSV
-      file_path <- fs::path(
-        output_path,
-        glue::glue("{tolower(agency)}_{indicator}.csv")
-      )
-      readr::write_csv(x = temp, file = file_path)
-      cli::cli_inform(c("v" = "Exported: {file_path}"))
-      exported_count <- exported_count + 1
-    }
-
-    # Summary
-    cli::cli_h1("SEQIC Indicator Export Summary")
-    cli::cli_alert_success("Total agencies processed: {agency_count}")
-    cli::cli_alert_success("Successfully exported: {exported_count}")
-    cli::cli_alert_warning("Skipped (no matching data): {skipped_count}")
-
-    invisible(NULL)
+# export_seqic_data
+# Export SEQIC Indicator Results to CSV by Agency
+#
+# This function iterates over a vector of agency names and exports SEQIC
+# indicator results (from a precomputed results tibble) to individual
+# CSV files for each agency. Files are saved in dynamically generated
+# subdirectories based on agency name.
+#
+# Parameters:
+# - agency_names: A character vector of agency or facility names. Each name must
+#   match values in the `Facility_Name` column of `seqic_results`.
+#
+# - seqic_results: A data frame or tibble of SEQIC indicator results that
+#   includes a `Facility_Name` column used to filter results per agency.
+#
+# - indicator: A string indicating the indicator group (e.g., "1a_1f",
+#   "4a_4b", "all_indicators") to name output files accordingly.
+#
+# Side Effects:
+# - Creates output directories (if not already present) using:
+#   `"C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/output/"`
+#
+# - Writes agency-specific CSV files to the directory with naming convention:
+#   `{agency}_{indicator}.csv`
+#
+# - Logs progress, warnings, and a summary using the `cli` package.
+#
+# Output:
+# - Returns `invisible(NULL)`; primary function is side-effect file export.
+#
+# Workflow Context:
+# - Use this function after calculating and formatting SEQIC results with
+#   `traumar::seqic_indicator_*()` and any additional wrangling or annotation.
+# - Designed for batch export of customized reports at the agency level.
+#
+export_seqic_data <- function(
+  agency_names,
+  facility_name_col,
+  seqic_results,
+  indicator,
+  output_dir_root = Sys.getenv("OUTPUT_FILE_PATH")
+) {
+  # Validate input
+  if (!tibble::is_tibble(seqic_results) && !is.data.frame(seqic_results)) {
+    rlang::abort("`seqic_results` must be a data.frame or tibble.")
   }
+
+  exported_count <- 0
+  skipped_count <- 0
+  agency_count <- length(agency_names)
+
+  for (agency in agency_names) {
+    temp <- seqic_results |>
+      dplyr::filter({{ facility_name_col }} == agency)
+
+    if (nrow(temp) == 0) {
+      cli::cli_warn("Skipped {agency}: no matching rows in `seqic_results`.")
+      skipped_count <- skipped_count + 1
+      next
+    }
+
+    # Create dynamic output path
+    output_path <- fs::path(output_dir_root, tolower(agency))
+    fs::dir_create(output_path)
+
+    # Build file path and write CSV
+    file_path <- fs::path(
+      output_path,
+      glue::glue("{tolower(agency)}_{indicator}.csv")
+    )
+    readr::write_csv(x = temp, file = file_path)
+    cli::cli_inform(c("v" = "Exported: {file_path}"))
+    exported_count <- exported_count + 1
+  }
+
+  # Summary
+  cli::cli_h1("SEQIC Indicator Export Summary")
+  cli::cli_alert_success("Total agencies processed: {agency_count}")
+  cli::cli_alert_success("Successfully exported: {exported_count}")
+  cli::cli_alert_warning("Skipped (no matching data): {skipped_count}")
+
+  invisible(NULL)
 }
 
 ###_____________________________________________________________________________

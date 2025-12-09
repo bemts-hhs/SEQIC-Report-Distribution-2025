@@ -233,29 +233,25 @@ export_seqic_data(
 ## export performance by year and region at the state level ----
 
 ### STATE LEVEL W, M, and Z scores grouped by year ----
-readr::write_csv(
+export_state_data(
   x = trauma_performance_result_years_state,
-  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/rmm_wmz/trauma_performance_result_years_state.csv"
+  subfolder = "rmm_wmz"
 )
 
 ### STATE LEVEL W, M, and Z scores grouped by mechanism of injury ----
-readr::write_csv(
+export_state_data(
   x = trauma_performance_result_mech_state,
-  file = "C:/Users/nfoss0/OneDrive - State of Iowa HHS/Analytics/BEMTS/SEQIC Facility Reports/2024/state/rmm_wmz/trauma_performance_result_mech_state.csv"
+  subfolder = "rmm_wmz"
 )
 
 ### STATE LEVEL W, M, and Z scores grouped by whether a TTA was called ----
-export_seqic_data(
-  agency_names = unique(trauma_2024$`Current Facility Name`),
-  facility_name_col = `Current Facility Name`,
-  seqic_results = trauma_performance_result_tta,
-  indicator = "_wmz_tta"
+export_state_data(
+  x = trauma_performance_result_tta_state,
+  subfolder = "rmm_wmz"
 )
 
 ### STATE LEVEL RMM statistics by year ----
-export_seqic_data(
-  agency_names = unique(trauma_2024$`Current Facility Name`),
-  facility_name_col = `Current Facility Name`,
-  seqic_results = rm_summary_results,
-  indicator = "_rmm_years"
+export_state_data(
+  x = rm_summary_results_state,
+  subfolder = "rmm_wmz"
 )
