@@ -135,6 +135,200 @@ dynamic_rm_bin_summary <- function(
   return(results)
 }
 
+###_____________________________________________________________________________
+### Helper to summarize reinjury counts after filtering for reinjuries (n > 1)
+### Input:
+###   - df: tibble with counts column `n` (injury counts per patient per group)
+###   - grouping_vars: character vector for grouping variable names (for .by)
+### Output:
+###   - tibble summarizing min, max, mode, quartiles, and median of reinjury counts
+###_____________________________________________________________________________
+summarize_reinjury_stats <- function(df, grouping_vars = grouping_vars) {
+  df |>
+    dplyr::filter(n > 1) |> # retain only reinjuries (counts > 1)
+    dplyr::summarize(
+      Min_Reinjury = min(n, na.rm = TRUE),
+      Max_Reinjury = max(n, na.rm = TRUE),
+      Mode_Reinjury = stat_mode(n, na.rm = TRUE),
+      Q25_Reinjury = stats::quantile(n, probs = 0.25, na.rm = TRUE, type = 7),
+      Median_Reinjury = stats::quantile(n, probs = 0.5, na.rm = TRUE, type = 7),
+      Q75_Reinjury = stats::quantile(n, probs = 0.75, na.rm = TRUE, type = 7),
+      .by = dplyr::all_of(grouping_vars)
+    )
+}
+
+###_____________________________________________________________________________
+### Helper function to compute period-to-period change in counts
+### Adds three columns:
+###   - change: raw numeric difference in count (n - lag(n))
+###   - prop_change: proportional change ((n - lag(n)) / lag(n))
+###   - prop_label: formatted percent label using traumar::pretty_percent()
+### This assumes that the input data is already grouped and counted, with a column `n`
+###_____________________________________________________________________________
+add_change_metrics <- function(df) {
+  df |>
+    dplyr::mutate(
+      # Compute raw numeric change from previous row
+      change = n - dplyr::lag(n),
+
+      # Compute proportional change (as a fraction)
+      prop_change = (n - dplyr::lag(n)) / dplyr::lag(n),
+
+      # Generate a human-readable percent label (e.g., "14.2%")
+      # Use NA_character_ if proportional change is NA (e.g., first row)
+      prop_label = ifelse(
+        !is.na(prop_change),
+        traumar::pretty_percent(prop_change, n_decimal = 2),
+        NA_character_
+      )
+    )
+}
+
+###_____________________________________________________________________________
+### Custom function to get unique count of injury cases in Patient Registry
+### Equivalent to counting unique inpatient visits based on Unique_Incident_ID
+### Supports dynamic grouping via tidy evaluation (bare column names in ...)
+###_____________________________________________________________________________
+injury_case_count <- function(df, ..., descriptive_stats = FALSE) {
+  # Capture grouping variables as symbols and convert to character strings for .by and joins
+  grouping_syms <- rlang::ensyms(...)
+  grouping_vars <- sapply(grouping_syms, rlang::as_string)
+
+  # Create temporary dataset with unique incident rows
+  # Unique incident defined by Unique_Incident_ID (one row per inpatient visit)
+  temp <- df |>
+    dplyr::distinct(Unique_Incident_ID, .keep_all = TRUE)
+
+  if (!descriptive_stats) {
+    # Simple count of unique cases by user-defined grouping variables
+    out <- temp |>
+      dplyr::count(...)
+
+    cli::cli_alert_success(
+      "Returning the count(s) of total unique inpatient injury cases."
+    )
+
+    return(out)
+  }
+
+  # When descriptive_stats = TRUE, add change metrics (numeric and percent change)
+  out <- temp |>
+    dplyr::count(...) |>
+    add_change_metrics()
+
+  cli::cli_alert_success(
+    "Returning the count(s) of total unique inpatient injury cases and descriptive statistics."
+  )
+
+  return(out)
+}
+
+###_____________________________________________________________________________
+### Custom function to get unique count of injuries in Patient Registry
+### A true estimation of the number of incidents (not encounters or records)
+###_____________________________________________________________________________
+injury_incident_count <- function(df, ..., descriptive_stats = FALSE) {
+  # Capture grouping variables from bare column names (e.g., Year, County)
+  grouping_syms <- rlang::ensyms(...) # capture as symbols for tidy eval
+  grouping_vars <- sapply(grouping_syms, rlang::as_string) # convert to character for .by and join
+
+  # Create a temporary object with one row per unique injury event
+  # A unique event is defined as a unique combination of Incident_Date and Unique_Patient_ID
+  # This removes duplicated encounters for the same incident
+  temp <- df |>
+    dplyr::distinct(Incident_Date, Unique_Patient_ID, .keep_all = TRUE)
+
+  if (!descriptive_stats) {
+    # Return a simple count of injury events by grouping variable(s)
+    out <- temp |>
+      dplyr::count(!!!grouping_syms)
+
+    cli::cli_alert_success(
+      "Returning the count(s) of total unique injury events leading to a trauma center visit."
+    )
+
+    return(out)
+  }
+
+  # When descriptive_stats = TRUE, include additional summary statistics
+  # This captures reinjury characteristics for patients who appear >1 time per group
+
+  # Step 1: Identify reinjury patterns (count > 1 per group)
+  stat <- temp |>
+    dplyr::filter(!is.na(Unique_Patient_ID)) |>
+    dplyr::count(!!!grouping_syms, Unique_Patient_ID) |>
+    summarize_reinjury_stats(grouping_vars = grouping_vars)
+
+  # Step 2: Count events and calculate change metrics
+  out <- temp |>
+    dplyr::count(!!!grouping_syms) |>
+    add_change_metrics() |>
+    dplyr::left_join(stat, by = grouping_vars) # <- this fixes the join
+
+  cli::cli_alert_success(
+    "Returning the count(s) of total unique injury events leading to a trauma center visit and descriptive statistics."
+  )
+
+  return(out)
+}
+
+###_____________________________________________________________________________
+# Function to calculate age-adjusted EMS run rates by county and BH district
+# This function computes directly standardized (age-adjusted) rates using
+# pre-aggregated data that includes event counts, local population estimates,
+# and standard population weights.
+#
+# Assumptions:
+#   • The input data has already been grouped (e.g., by County and Age Group).
+#   • {{ count }}, {{ local_population }}, and {{ standard_population_weight }}
+#     are scalar fields within these grouped rows.
+#   • The user provides any necessary grouping variables via ... to summarize
+#     results at the desired geographic or demographic resolution.
+#
+# This function returns both crude and age-adjusted rates per specified
+# multiplier (default is per 100,000 population).
+#
+# Inputs:
+#   • data — a grouped or ungrouped data.frame or tibble with input variables
+#   • count — unquoted column name representing the event count
+#   • local_population — unquoted column name for the local population (e.g., county-age)
+#   • standard_population_weight — unquoted column name for the standard weight (proportional)
+#   • ... — grouping variables to aggregate final rates (e.g., County, District)
+#   • rate — numeric value for scaling rates (default: 100,000)
+#
+# Output:
+#   • A tibble with Count, Crude_Rate, and Age_Adjusted_Rate per grouping
+###_____________________________________________________________________________
+
+calc_age_adjusted_rate <- function(
+  data, # input tibble or data.frame with grouped or stratified rows
+  count, # unquoted column name for observed event count (e.g., EMS runs)
+  local_population, # unquoted column name for stratum-specific local population
+  standard_population_weight, # unquoted column name for proportional weight from standard population
+  .by = NULL, # grouping variables for aggregating final rates (e.g., 'County', 'District')
+  rate = 100000 # rate multiplier (e.g., per 1000, 10000, or 100000)
+) {
+  # Step 1: Calculate age-specific crude rate and weighted contribution
+  rate_data <- data |>
+    dplyr::mutate(
+      crude_rate = ({{ count }} / {{ local_population }}) * rate, # rate within each age group
+      weighted_rate = crude_rate * {{ standard_population_weight }} # contribution to adjusted rate
+    )
+
+  # Step 2: Aggregate to final grouping level
+  rate_summary <- rate_data |>
+    dplyr::summarize(
+      Count = sum({{ count }}, na.rm = TRUE), # total count of events
+      Crude_Rate = sum({{ count }}, na.rm = TRUE) /
+        sum({{ local_population }}, na.rm = TRUE) *
+        rate, # overall crude rate
+      Age_Adjusted_Rate = sum(weighted_rate, na.rm = TRUE), # final adjusted rate
+      .by = tidyselect::all_of({{ .by }}) # group by user-supplied variables (e.g., County)
+    )
+
+  return(rate_summary)
+}
+
 # DATA MANIPULATION FACILITIES ===============================================
 
 ###_____________________________________________________________________________

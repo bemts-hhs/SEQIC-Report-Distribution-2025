@@ -89,23 +89,14 @@ trauma_performance_result_tta <- trauma_2020_2024_clean |>
 
 ## Facility Level Relative Mortality Metric ----
 rm_summary_results <- trauma_2020_2024_clean |>
-  tidyr::nest(data = -c(Year, `Current Facility Name`)) |>
-  dplyr::mutate(
-    results = purrr::map(
-      data,
-      ~ dynamic_rm_bin_summary(
-        data = .x,
-        Ps_col = Probability_of_Survival_Calc,
-        outcome_col = Alive,
-        group_vars = NULL,
-        n_samples = 1000,
-        bootstrap_ci = TRUE,
-        seed = 10232015
-      )
-    )
+  dynamic_rm_bin_summary(
+    Ps_col = Probability_of_Survival_Calc,
+    outcome_col = Alive,
+    group_vars = c("Year", "Current Facility Name"),
+    n_samples = 1000,
+    bootstrap_ci = TRUE,
+    seed = 10232015
   ) |>
-  dplyr::select(-data) |>
-  tidyr::unnest(results) |>
   dplyr::arrange(`Current Facility Name`, Year, bin_number)
 
 # Calculate metrics at the state level ----
