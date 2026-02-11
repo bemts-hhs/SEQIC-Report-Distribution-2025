@@ -15,7 +15,6 @@ knitr::opts_chunk$set(
 # SEQIC Report Distribution 2025 <img src="man/figures/README/HHS PFP 4.png" align="right" width="200" alt="" />
 
 <!-- badges: start -->
-[![RStudio Project](https://img.shields.io/badge/RStudio-Project-blue)](https://posit.co)
 [![Open Source](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 <!-- badges: end -->
 
@@ -36,15 +35,35 @@ library(knitr)
 
 seqic_summary <- tibble::tibble(
   `Indicator` = c(
-    "1a", "1b", "1c",
-    "1d", "1e", "1f",
-    "2",  "3", 
-    "4a", "4b",
-    "5a", "5b", "5c", "5d",
-    "6", "7", "8",
-    "9a", "9b", "9c", "9d", "9e", "9f",
-    "10a", "10b", "10c",
-    "11", "12", "13"
+    "1a",
+    "1b",
+    "1c",
+    "1d",
+    "1e",
+    "1f",
+    "2",
+    "3",
+    "4a",
+    "4b",
+    "5a",
+    "5b",
+    "5c",
+    "5d",
+    "6",
+    "7",
+    "8",
+    "9a",
+    "9b",
+    "9c",
+    "9d",
+    "9e",
+    "9f",
+    "10a",
+    "10b",
+    "10c",
+    "11",
+    "12",
+    "13"
   ),
   `Title` = c(
     "Trauma surgeon in ED <= 15 min (Level I/II)",

@@ -5,8 +5,6 @@
 
 <!-- badges: start -->
 
-[![RStudio
-Project](https://img.shields.io/badge/RStudio-Project-blue)](https://posit.co)
 [![Open
 Source](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 <!-- badges: end -->
